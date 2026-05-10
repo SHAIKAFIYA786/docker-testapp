@@ -1,42 +1,61 @@
 const express = require("express");
 const app = express();
-const path = require("path");
 const MongoClient = require("mongodb").MongoClient;
+const cors = require("cors");
 
-const PORT = 5050;
+const PORT = process.env.PORT || 5050;
+
+// Middleware
+app.use(cors());
 app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
 app.use(express.static("public"));
 
-const MONGO_URL = "mongodb://admin:qwerty@localhost:27017";
+// MongoDB URL from Render environment
+const MONGO_URL = process.env.MONGO_URL;
+
 const client = new MongoClient(MONGO_URL);
 
-//GET all users
+let db;
+
+// Connect once (IMPORTANT for production)
+async function connectDB() {
+    try {
+        await client.connect();
+        db = client.db("apnacollege-db");
+        console.log("✅ MongoDB connected successfully");
+    } catch (err) {
+        console.error("❌ MongoDB connection failed:", err);
+    }
+}
+
+connectDB();
+
+
+// GET all users
 app.get("/getUsers", async (req, res) => {
-    await client.connect(MONGO_URL);
-    console.log('Connected successfully to server');
-
-    const db = client.db("apnacollege-db");
-    const data = await db.collection('users').find({}).toArray();
-    
-    client.close();
-    res.send(data);
+    try {
+        const data = await db.collection("users").find({}).toArray();
+        res.send(data);
+    } catch (err) {
+        res.status(500).send(err);
+    }
 });
 
-//POST new user
+
+// POST new user
 app.post("/addUser", async (req, res) => {
-    const userObj = req.body;
-    console.log(req.body);
-    await client.connect(MONGO_URL);
-    console.log('Connected successfully to server');
-
-    const db = client.db("apnacollege-db");
-    const data = await db.collection('users').insertOne(userObj);
-    console.log(data);
-    console.log("data inserted in DB");
-    client.close();
+    try {
+        const userObj = req.body;
+        const result = await db.collection("users").insertOne(userObj);
+        res.send(result);
+    } catch (err) {
+        res.status(500).send(err);
+    }
 });
 
 
+// Start server
 app.listen(PORT, () => {
-    console.log(`server running on port ${PORT}`);
+    console.log(`🚀 Server running on port ${PORT}`);
 });
